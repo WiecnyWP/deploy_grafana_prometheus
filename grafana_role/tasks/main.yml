@@ -1,0 +1,63 @@
+---
+- name: Update APT cache
+  apt:
+    update_cache: yes
+
+- name: Install required packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ required_packages }}"
+
+- name: Add Grafana GPG key
+  shell: "curl -fsSL {{ grafana_gpg_key_url }} | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/grafana.gpg"
+  async: 300
+  poll: 0
+
+- name: Add Grafana APT repository
+  apt_repository:
+    repo: "{{ grafana_apt_repo }}"
+    state: present
+
+- name: Update APT cache (again)
+  apt:
+    update_cache: yes
+
+- name: Install Grafana
+  apt:
+    name: "{{ grafana_packages }}"
+    state: present
+
+- name: Enable and start Grafana service
+  systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: allow
+
+- name: Allow SSH in UFW
+  ufw:
+    rule: allow
+    port: "{{ ssh_port }}"
+
+- name: Allow Grafana port in UFW
+  ufw:
+    rule: allow
+    port: "{{ grafana_port }}"
+    proto: tcp
+
+- name: Allow access to Grafana from specific IP range
+  ufw:
+    rule: allow
+    from_ip: "{{ allowed_ip_range }}"
+    port: "{{ grafana_port }}"
+
