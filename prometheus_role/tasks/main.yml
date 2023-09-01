@@ -1,0 +1,110 @@
+---
+# tasks/main.yml
+- name: Update APT cache
+  apt:
+    update_cache: yes
+
+- name: Create Prometheus configuration directory
+  file:
+    path: "{{ prometheus_config_dir }}"
+    state: directory
+
+- name: Download Prometheus binary
+  get_url:
+    url: "{{ prometheus_download_url }}"
+    dest: "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}.tar.gz"
+
+- name: Extract Prometheus files
+  unarchive:
+    src: "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}.tar.gz"
+    dest: "/tmp/"
+    remote_src: yes
+
+- name: Move Prometheus binaries to /usr/local/bin
+  command: mv "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/prometheus" "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/promtool" /usr/local/bin/
+  args:
+    creates: /usr/local/bin/prometheus
+
+- name: Move Prometheus configuration files
+  command: mv "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/consoles/" "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/console_libraries/" "{{ prometheus_config_dir }}/"
+  args:
+    creates: "{{ prometheus_config_dir }}/consoles"
+
+- name: Move Prometheus configuration file
+  command: mv "/tmp/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}/prometheus.yml" "{{ prometheus_config_dir }}/prometheus.yml"
+  args:
+    creates: "{{ prometheus_config_dir }}/prometheus.yml"
+
+- name: Create Prometheus system group
+  group:
+    name: "{{ prometheus_group }}"
+    state: present
+    system: yes
+
+- name: Create Prometheus system user
+  user:
+    name: "{{ prometheus_user }}"
+    comment: Prometheus Monitoring System
+    system: yes
+    shell: /sbin/nologin
+    group: "{{ prometheus_group }}"
+
+- name: Change ownership of Prometheus configuration and data directories
+  file:
+    path: "{{ item }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_group }}"
+    recurse: yes
+  with_items:
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+
+- name: Set permissions for Prometheus directories
+  file:
+    path: "{{ item }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_group }}"
+    mode: '0775'
+    recurse: yes
+  with_items:
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+
+- name: Copy Prometheus systemd service file
+  copy:
+    src: prometheus.service
+    dest: /etc/systemd/system/prometheus.service
+
+- name: Start Prometheus service
+  systemd:
+    name: "{{ prometheus_service_name }}"
+    state: started
+    enabled: yes
+
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: allow
+
+- name: Allow SSH in UFW
+  ufw:
+    rule: allow
+    port: "{{ ssh_port }}"
+
+- name: Allow Prometheus port in UFW
+  ufw:
+    rule: allow
+    port: "{{ prometheus_service_port }}"
+    proto: tcp
+
+- name: Allow access to Prometheus from specific IP range
+  ufw:
+    rule: allow
+    from_ip: "{{ prometheus_allowed_ip_range }}"
+    port: "{{ prometheus_service_port }}"
+

@@ -1,0 +1,12 @@
+---
+prometheus_version: "2.31.0"
+prometheus_arch: "linux-amd64"
+prometheus_download_url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ prometheus_arch }}.tar.gz"
+prometheus_user: "prometheus"
+prometheus_group: "prometheus"
+prometheus_config_dir: "/etc/prometheus"
+prometheus_data_dir: "/var/lib/prometheus"
+prometheus_service_name: "prometheus"
+prometheus_service_port: 9090
+prometheus_allowed_ip_range: "192.168.1.0/24"
+ssh_port: 22

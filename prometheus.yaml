@@ -1,0 +1,5 @@
+- name: Playbook for Prometheus Installation
+  hosts: prometheus
+  become: yes
+  roles:
+    - prometheus_role
